@@ -1,9 +1,9 @@
 # llm_config.py
 
-LLM_TYPE = "ollama"  # Options: 'llama_cpp', 'ollama'
+LLM_TYPE = "llama_cpp"  # Options: 'llama_cpp', 'ollama'
 
 # LLM settings for llama_cpp
-MODEL_PATH = "/filepath/to/your/llama.cpp/model" # Replace with your llama.cpp models filepath
+MODEL_PATH = "/Users/coltonkawamura/llm_models/llama31-8b-f16.gguf" # Replace with your llama.cpp models filepath
 
 LLM_CONFIG_LLAMA_CPP = {
     "llm_type": "llama_cpp",
