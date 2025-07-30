@@ -1,5 +1,5 @@
 llama-cpp-python
-duckduckgo-search
+ddgs
 colorama
 requests
 beautifulsoup4

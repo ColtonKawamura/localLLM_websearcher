@@ -50,7 +50,7 @@ class OutputRedirector:
         sys.stderr = self.original_stderr
 
 class EnhancedSelfImprovingSearch:
-    def __init__(self, llm: LLMWrapper, parser: UltimateLLMResponseParser, max_attempts: int = 5):
+    def __init__(self, llm: LLMWrapper, parser: UltimateLLMResponseParser, max_attempts: int = 2):
         self.llm = llm
         self.parser = parser
         self.max_attempts = max_attempts
@@ -127,6 +127,9 @@ class EnhancedSelfImprovingSearch:
                 elif decision == "refine":
                     print(f"{Fore.YELLOW}Refining search...{Style.RESET_ALL}")
                     attempt += 1
+                    if attempt >= self.max_attempts:
+                        print(f"{Fore.YELLOW}Maximum attempts reached. Using best available content.{Style.RESET_ALL}")
+                        return self.generate_final_answer(user_query, scraped_content)
                 else:
                     print(f"{Fore.RED}Unexpected decision. Proceeding to answer.{Style.RESET_ALL}")
                     return self.generate_final_answer(user_query, scraped_content)
@@ -159,7 +162,7 @@ Decision: [ONLY 'answer' if content is sufficient, or 'refine' if more informati
         max_retries = 3
         for attempt in range(max_retries):
             try:
-                response_text = self.llm.generate(prompt, max_tokens=200, stop=None)
+                response_text = self.llm.generate(prompt, max_tokens=500, stop=None)
                 evaluation, decision = self.parse_evaluation_response(response_text)
                 if decision in ['answer', 'refine']:
                     return evaluation, decision
@@ -241,9 +244,13 @@ Do not provide any additional information or explanation.
         if not query:
             return []
 
+<<<<<<< HEAD
         from duckduckgo_search import DDGS
         max_retries = 3
         base_delay = 2  # Base delay in seconds
+=======
+        from ddgs import DDGS
+>>>>>>> c21a1f9 (feature: changed to bullets for final answer, only 2 attempts to search to decrease search time, added support function to clean up final answer.)
 
         for retry in range(max_retries):
             try:
@@ -400,10 +407,33 @@ Reasoning: [Your reasoning for the selections]
             print(f"{Fore.GREEN}URL: {url}{Style.RESET_ALL}")
             print(f"Content: {content[:4000]}...\n")
 
+    def clean_bullet_point_response(self, response: str, max_bullets: int = 8) -> str:
+        """Clean up a bullet point response by limiting the number of bullets."""
+        # Extract all bullet points (both • and * are supported)
+        bullet_points = re.findall(r'(?:^|\n)[•*]\s+(.*?)(?:\n|$)', response)
+        
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_bullets = []
+        for bullet in bullet_points:
+            # Normalize the bullet by lowercasing and removing extra spaces
+            normalized = re.sub(r'\s+', ' ', bullet.lower().strip())
+            if normalized not in seen and normalized:
+                seen.add(normalized)
+                unique_bullets.append(bullet.strip())
+        
+        # Limit to max_bullets
+        limited_bullets = unique_bullets[:max_bullets]
+        
+        # Rebuild the response with proper bullet formatting
+        cleaned_response = '\n'.join([f"• {bullet}" for bullet in limited_bullets])
+        
+        return cleaned_response
+
     def generate_final_answer(self, user_query: str, scraped_content: Dict[str, str]) -> str:
         user_query_short = user_query[:200]
         prompt = f"""
-You are an AI assistant. Provide a comprehensive and detailed answer to the following question using ONLY the information provided in the scraped content. Do not include any references or mention any sources. Answer directly and thoroughly.
+You are an AI assistant. Provide a BRIEF answer (4-8 sentences maximum) to the following question using ONLY the information provided in the scraped content. Do not include any references or mention any sources. Answer directly and thoroughly.
 
 Question: "{user_query_short}"
 
@@ -414,6 +444,9 @@ Important Instructions:
 1. Do not use phrases like "Based on the absence of selected results" or similar.
 2. If the scraped content does not contain enough information to answer the question, say so explicitly and explain what information is missing.
 3. Provide as much relevant detail as possible from the scraped content.
+4. Answer in bullet form ONLY.
+5. No more than 8 bullet points in total.
+6. No more than 1 sentence per bullet point.
 
 Answer:
 """
@@ -424,8 +457,9 @@ Answer:
             llm_output = output.getvalue()
             logger.info(f"LLM Output in generate_final_answer:\n{llm_output}")
             if response_text:
-                logger.info(f"LLM Response:\n{response_text}")
-                return response_text
+                cleaned_response = self.clean_bullet_point_response(response_text)
+                logger.info(f"LLM Response:\n{cleaned_response}")
+                return cleaned_response
 
         error_message = "I apologize, but I couldn't generate a satisfactory answer based on the available information."
         logger.warning(f"Failed to generate a response after {max_retries} attempts. Returning error message.")
@@ -437,6 +471,7 @@ Answer:
             content = re.sub(r'\s+', ' ', content)
             formatted_content.append(f"Content from {url}:\n{content}\n")
         return "\n".join(formatted_content)
+    
 
     def synthesize_final_answer(self, user_query: str) -> str:
         prompt = f"""
