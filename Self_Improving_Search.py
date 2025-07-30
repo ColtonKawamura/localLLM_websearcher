@@ -29,7 +29,7 @@ logger.addHandler(file_handler)
 logger.propagate = False
 
 # Suppress other loggers
-for name in ['root', 'duckduckgo_search', 'requests', 'urllib3']:
+for name in ['root', 'ddgs', 'requests', 'urllib3']:
     logging.getLogger(name).setLevel(logging.WARNING)
     logging.getLogger(name).handlers = []
     logging.getLogger(name).propagate = False
@@ -212,6 +212,16 @@ Do not provide any additional information or explanation.
                 return query, time_range
         return self.fallback_query(user_query), "none"
 
+    def extract_search_snippets(self, search_results: List[Dict]) -> Dict[str, str]:
+        """Extract snippets from search results to use as additional context."""
+        snippets = {}
+        for result in search_results:
+            if 'href' in result and 'body' in result:
+                url = result['href']
+                # Store the snippet with its URL as key
+                snippets[url] = result.get('body', '')
+        return snippets
+
     def parse_query_response(self, response: str) -> Tuple[str, str]:
         query = ""
         time_range = "none"
@@ -271,7 +281,7 @@ Do not provide any additional information or explanation.
             print(f"Snippet: {result.get('body', 'N/A')[:200]}...")
             print(f"URL: {result.get('href', 'N/A')}\n")
 
-    def select_relevant_pages(self, search_results: List[Dict], user_query: str) -> List[str]:
+    def select_relevant_pages(self, search_results: List[Dict], user_query: str) -> Tuple[List[str], Dict[str, str]]:
         prompt = f"""
 Given the following search results for the user's question: "{user_query}"
 Select the 2 most relevant results to scrape and analyze. Explain your reasoning for each selection.
@@ -299,11 +309,18 @@ Reasoning: [Your reasoning for the selections]
 
             parsed_response = self.parse_page_selection_response(response_text)
             if parsed_response and self.validate_page_selection_response(parsed_response, len(search_results)):
-                selected_urls = [result['href'] for result in search_results if result['number'] in parsed_response['selected_results']]
+                selected_results = [result for result in search_results if result['number'] in parsed_response['selected_results']]
+                selected_urls = [result['href'] for result in selected_results]
+
+                selected_bodies = {}
+                for result in selected_results:
+                    if 'href' in result and 'body' in result:
+                        selected_bodies[result['href']] = result.get('body', '')
+                print(f"{Fore.YELLOW}Selected URLs: {selected_urls}{Style.RESET_ALL}")
 
                 allowed_urls = [url for url in selected_urls if can_fetch(url)]
                 if allowed_urls:
-                    return allowed_urls
+                    return allowed_urls, selected_bodies
                 else:
                     print(f"{Fore.YELLOW}Warning: All selected URLs are disallowed by robots.txt. Retrying selection.{Style.RESET_ALL}")
             else:
@@ -311,7 +328,11 @@ Reasoning: [Your reasoning for the selections]
 
         print(f"{Fore.YELLOW}Warning: All attempts to select relevant pages failed. Falling back to top allowed results.{Style.RESET_ALL}")
         allowed_urls = [result['href'] for result in search_results if can_fetch(result['href'])][:2]
-        return allowed_urls
+            # At the fallback point
+        allowed_urls = [result['href'] for result in search_results if can_fetch(result['href'])][:2]
+        allowed_bodies = {result['href']: result.get('body', '') for result in search_results 
+                     if can_fetch(result['href']) and result['href'] in allowed_urls}
+        return allowed_urls, allowed_bodies
 
     def parse_page_selection_response(self, response: str) -> Dict[str, Union[List[int], str]]:
         lines = response.strip().split('\n')
