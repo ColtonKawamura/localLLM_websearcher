@@ -1,6 +1,27 @@
 # llm_config.py
 
+<<<<<<< HEAD
 LLM_TYPE = "ollama"  # Options: 'ollama', 'openai', 'anthropic'
+=======
+LLM_TYPE = "llama_cpp"  # Options: 'llama_cpp', 'ollama'
+
+# LLM settings for llama_cpp
+MODEL_PATH = "/Users/coltonkawamura/llm_models/llama31-8b-f16.gguf" # Replace with your llama.cpp models filepath
+
+LLM_CONFIG_LLAMA_CPP = {
+    "llm_type": "llama_cpp",
+    "model_path": MODEL_PATH,
+    "n_ctx": 20000,  # context size
+    "n_gpu_layers": 0,  # number of layers to offload to GPU (-1 for all, 0 for none)
+    "n_threads": 8,  # number of threads to use
+    "temperature": 0.7,  # temperature for sampling
+    "top_p": 0.9,  # top p for sampling
+    "top_k": 40,  # top k for sampling
+    "repeat_penalty": 1.1,  # repeat penalty
+    "max_tokens": 1024,  # max tokens to generate
+    "stop": ["User:", "\n\n"]  # stop sequences
+}
+>>>>>>> b549d90 (fix: I use llama.cpp)
 
 # LLM settings for Ollama
 LLM_CONFIG_OLLAMA = {
