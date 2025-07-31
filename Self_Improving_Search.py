@@ -50,7 +50,7 @@ class OutputRedirector:
         sys.stderr = self.original_stderr
 
 class EnhancedSelfImprovingSearch:
-    def __init__(self, llm: LLMWrapper, parser: UltimateLLMResponseParser, max_attempts: int = 2):
+    def __init__(self, llm: LLMWrapper, parser: UltimateLLMResponseParser, max_attempts: int = 5):
         self.llm = llm
         self.parser = parser
         self.max_attempts = max_attempts
